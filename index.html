@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emitir Nota Fiscal - Blockchain</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Quicksand:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #fafafa;
+      color: #444;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .header-strip {
+      background-color: #1e3d58;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+
+    .btn-primary {
+      background-color: #1e3d58;
+      border: none;
+      border-radius: 6px;
+      padding: 15px;
+      color: #fff;
+      font-size: 18px;
+      width: 100%;
+    }
+
+    .note-output {
+      display: none;
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #e9f7fd;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    #connectButton {
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-strip">Emitir Nota Fiscal</div>
+
+    <!-- Botão de conexão -->
+    <button id="connectButton" class="btn btn-primary">Conectar MetaMask</button>
+
+    <form id="notaForm">
+      <div class="mb-3">
+        <label for="nome_empresa" class="form-label">Nome da Empresa</label>
+        <input type="text" class="form-control" id="nome_empresa" required>
+      </div>
+      <div class="mb-3">
+        <label for="cnpj" class="form-label">CNPJ</label>
+        <input type="text" class="form-control" id="cnpj" required>
+      </div>
+      <div class="mb-3">
+        <label for="nome_cliente" class="form-label">Nome do Cliente</label>
+        <input type="text" class="form-control" id="nome_cliente" required>
+      </div>
+      <div class="mb-3">
+        <label for="cpf_cliente" class="form-label">CPF do Cliente</label>
+        <input type="text" class="form-control" id="cpf_cliente" required>
+      </div>
+      <div class="mb-3">
+        <label for="data" class="form-label">Data</label>
+        <input type="date" class="form-control" id="data" required>
+      </div>
+      <div class="mb-3">
+        <label for="itens" class="form-label">Itens</label>
+        <input type="text" class="form-control" id="itens" required>
+      </div>
+      <div class="mb-3">
+        <label for="valor_total" class="form-label">Valor Total (ETH)</label>
+        <input type="number" class="form-control" id="valor_total" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Emitir Nota</button>
+    </form>
+
+    <div class="note-output" id="noteOutput">
+      <h4>Nota registrada com sucesso!</h4>
+      <p>ID da transação: <span id="txHashValue"></span></p>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.6.8/dist/ethers.umd.min.js"></script>  
+<script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script>
+    let web3;
+    let contract;
+    const contractAddress = "0x849ee1ec1ec0E394B15B5a5Ab0F77b86C3C0592C";
+    const abi = [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "descricao",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "valor",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "emissor",
+          "type": "address"
+        }
+      ],
+      "name": "NotaEmitida",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_id",
+          "type": "uint256"
+        }
+      ],
+      "name": "consultarNota",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_descricao",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_valor",
+          "type": "uint256"
+        }
+      ],
+      "name": "emitirNota",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "notas",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "id",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "descricao",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "valor",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "emissor",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalNotas",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
+
+    const connectButton = document.getElementById('connectButton');
+    connectButton.addEventListener('click', async () => {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          contract = new web3.eth.Contract(abi, contractAddress);
+          connectButton.textContent = "MetaMask Conectada ✅";
+          connectButton.disabled = true;
+        } catch (err) {
+          alert("Conexão recusada!");
+        }
+      } else {
+        alert("MetaMask não encontrada. Instale a extensão!");
+      }
+    });
+
+    const form = document.getElementById('notaForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const nomeEmpresa = document.getElementById('nome_empresa').value;
+      const cnpj = document.getElementById('cnpj').value;
+      const nomeCliente = document.getElementById('nome_cliente').value;
+      const cpfCliente = document.getElementById('cpf_cliente').value;
+      const data = document.getElementById('data').value;
+      const itens = document.getElementById('itens').value;
+      const valor = document.getElementById('valor_total').value;
+
+      const accounts = await web3.eth.getAccounts();
+      const sender = accounts[0];
+
+      try {
+        const tx = await contract.methods.emitirNota(
+          nomeEmpresa,
+          cnpj,
+          nomeCliente,
+          cpfCliente,
+          data,
+          itens,
+          web3.utils.toWei(valor, 'ether')
+        ).send({ from: sender });
+
+        document.getElementById('txHashValue').textContent = tx.transactionHash;
+        document.getElementById('noteOutput').style.display = 'block';
+      } catch (err) {
+        alert("Erro ao emitir: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
